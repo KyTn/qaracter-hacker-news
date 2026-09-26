@@ -9,28 +9,15 @@ using Microsoft.Extensions.Options;
 
 namespace Infrastructure.HackerNews;
 
-public sealed partial class HackerNewsClient : IHackerNewsClient
+public sealed partial class HackerNewsClient(
+    HttpClient httpClient,
+    HybridCache cache,
+    HackerNewsConcurrencyGate gate,
+    IOptions<HackerNewsOptions> options,
+    ILogger<HackerNewsClient> logger) : IHackerNewsClient
 {
     private const string BestStoriesKey = "hn:beststories";
-    private readonly HttpClient _httpClient;
-    private readonly HybridCache _cache;
-    private readonly HackerNewsConcurrencyGate _gate;
-    private readonly HackerNewsOptions _options;
-    private readonly ILogger<HackerNewsClient> _logger;
-
-    public HackerNewsClient(
-        HttpClient httpClient,
-        HybridCache cache,
-        HackerNewsConcurrencyGate gate,
-        IOptions<HackerNewsOptions> options,
-        ILogger<HackerNewsClient> logger)
-    {
-        _httpClient = httpClient;
-        _cache = cache;
-        _gate = gate;
-        _options = options.Value;
-        _logger = logger;
-    }
+    private readonly HackerNewsOptions _options = options.Value;
 
     public async ValueTask<HackerNewsResult<IReadOnlyList<long>>> GetBestStoryIdsAsync(
         CancellationToken cancellationToken = default)
@@ -38,7 +25,7 @@ public sealed partial class HackerNewsClient : IHackerNewsClient
         long started = Stopwatch.GetTimestamp();
         try
         {
-            BestStoryIdsCacheEntry entry = await _cache.GetOrCreateAsync(
+            BestStoryIdsCacheEntry entry = await cache.GetOrCreateAsync(
                 BestStoriesKey,
                 FetchBestStoryIdsAsync,
                 new HybridCacheEntryOptions
@@ -60,12 +47,12 @@ public sealed partial class HackerNewsClient : IHackerNewsClient
     private async ValueTask<BestStoryIdsCacheEntry> FetchBestStoryIdsAsync(CancellationToken cancellationToken)
     {
         RecordCachePopulation("beststories");
-        using HackerNewsConcurrencyGate.Lease lease = await _gate.AcquireAsync(cancellationToken).ConfigureAwait(false);
+        using HackerNewsConcurrencyGate.Lease lease = await gate.AcquireAsync(cancellationToken).ConfigureAwait(false);
         if (!lease.IsAcquired) throw new HackerNewsThrottledException();
 
         RecordUpstreamCall("beststories");
         using HttpRequestMessage request = new(HttpMethod.Get, "v0/beststories.json");
-        using HttpResponseMessage response = await _httpClient.SendAsync(
+        using HttpResponseMessage response = await httpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken).ConfigureAwait(false);

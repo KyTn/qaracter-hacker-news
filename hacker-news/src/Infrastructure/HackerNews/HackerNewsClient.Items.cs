@@ -18,7 +18,7 @@ public sealed partial class HackerNewsClient
         string cacheKey = $"hn:item:{id}";
         try
         {
-            CachedItemEnvelope envelope = await _cache.GetOrCreateAsync(
+            CachedItemEnvelope envelope = await cache.GetOrCreateAsync(
                 cacheKey,
                 async token => await FetchItemAsync(id, token).ConfigureAwait(false),
                 new HybridCacheEntryOptions
@@ -30,7 +30,7 @@ public sealed partial class HackerNewsClient
 
             if (!envelope.Found)
             {
-                await _cache.SetAsync(
+                await cache.SetAsync(
                     cacheKey,
                     envelope,
                     new HybridCacheEntryOptions
@@ -55,12 +55,12 @@ public sealed partial class HackerNewsClient
     private async ValueTask<CachedItemEnvelope> FetchItemAsync(long id, CancellationToken cancellationToken)
     {
         RecordCachePopulation("item");
-        using HackerNewsConcurrencyGate.Lease lease = await _gate.AcquireAsync(cancellationToken).ConfigureAwait(false);
+        using HackerNewsConcurrencyGate.Lease lease = await gate.AcquireAsync(cancellationToken).ConfigureAwait(false);
         if (!lease.IsAcquired) throw new HackerNewsThrottledException();
 
         RecordUpstreamCall("item");
         using HttpRequestMessage request = new(HttpMethod.Get, $"v0/item/{id}.json");
-        using HttpResponseMessage response = await _httpClient.SendAsync(
+        using HttpResponseMessage response = await httpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken).ConfigureAwait(false);

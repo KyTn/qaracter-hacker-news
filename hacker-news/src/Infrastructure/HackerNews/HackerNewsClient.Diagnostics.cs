@@ -19,13 +19,13 @@ public sealed partial class HackerNewsClient
     private void RecordCachePopulation(string operation)
     {
         CachePopulations.Add(1, new KeyValuePair<string, object?>("operation", operation));
-        _logger.LogDebug("Populating Hacker News cache for {Operation}", operation);
+        logger.LogDebug("Populating Hacker News cache for {Operation}", operation);
     }
 
     private void RecordUpstreamCall(string operation)
     {
         UpstreamCalls.Add(1, new KeyValuePair<string, object?>("operation", operation));
-        _logger.LogDebug("Calling Hacker News for {Operation}", operation);
+        logger.LogDebug("Calling Hacker News for {Operation}", operation);
     }
 
     private void RecordOutcome(string operation, HackerNewsOutcome outcome, long started)
@@ -35,12 +35,12 @@ public sealed partial class HackerNewsClient
         tags.Add("outcome", outcome.ToString());
         Operations.Add(1, tags);
         Duration.Record(Stopwatch.GetElapsedTime(started).TotalMilliseconds, tags);
-        _logger.LogInformation("Hacker News {Operation} completed with {Outcome}", operation, outcome);
+        logger.LogInformation("Hacker News {Operation} completed with {Outcome}", operation, outcome);
     }
 
     private void RecordFailure(string operation, HackerNewsOutcome outcome, Exception exception, long started)
     {
         RecordOutcome(operation, outcome, started);
-        _logger.LogWarning("Hacker News {Operation} failed with {Outcome} ({ExceptionType})", operation, outcome, exception.GetType().Name);
+        logger.LogWarning("Hacker News {Operation} failed with {Outcome} ({ExceptionType})", operation, outcome, exception.GetType().Name);
     }
 }
